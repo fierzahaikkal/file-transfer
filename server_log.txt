@@ -10,3 +10,7 @@
 2025-05-16 13:13:38,171 - INFO - Accepted connection from 127.0.0.1:54898
 2025-05-16 13:13:38,238 - INFO - File 'luminary-dark.png' sent successfully to 127.0.0.1:54898
 2025-05-16 13:14:24,235 - INFO - Server stopped
+2025-05-16 13:17:39,493 - INFO - Server started on 127.0.0.1:12345
+2025-05-16 13:17:55,792 - INFO - Accepted connection from 127.0.0.1:55307
+2025-05-16 13:18:09,996 - INFO - File 'luminary-dark.png' sent successfully to 127.0.0.1:55307
+2025-05-16 13:18:45,958 - INFO - Server stopped

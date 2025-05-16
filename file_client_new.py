@@ -93,10 +93,14 @@ class FileClient:
                 
                 # Parse the header
                 try:
-                    file_name, file_size = header.split('|')
+                    file_name, file_size, file_extension = header.split('|')
                     file_size = int(file_size)
                 except ValueError:
                     raise ValueError("Invalid file header format")
+                
+                # Append file extension to save path if not manually specified
+                if os.path.splitext(save_path)[1] == '':
+                    save_path = save_path + file_extension
                 
                 # Create the directory if it doesn't exist
                 os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else ".", exist_ok=True)
@@ -437,10 +441,11 @@ class ClientGUI:
         
         # Determine save path
         if self.auto_save.get():
-            # Auto-generate filename with timestamp
+            # Auto-generate filename with timestamp and extension
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             save_path = os.path.join(self.save_directory.get(), f"received_file_{timestamp}")
-            # Let the server header determine the extension later
+            # Wait for server to send file extension
+            # Extension will be appended after receiving the header
         else:
             # Ask user for save location
             save_path = filedialog.asksaveasfilename(

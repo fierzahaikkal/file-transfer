@@ -6,3 +6,6 @@
 2025-05-16 13:13:38,171 - INFO - Connected to server at 127.0.0.1:12345
 2025-05-16 13:13:49,671 - INFO - File received and saved as '/Users/raflidewanto/Downloads/received_file_20250516_131349'
 2025-05-16 13:14:21,352 - INFO - Disconnected from server
+2025-05-16 13:17:55,792 - INFO - Connected to server at 127.0.0.1:12345
+2025-05-16 13:18:21,046 - INFO - File received and saved as '/Users/raflidewanto/Downloads/received_file_20250516_131821.png'
+2025-05-16 13:18:49,121 - INFO - Disconnected from server

@@ -100,8 +100,9 @@ class FileServer:
                 file_size = os.path.getsize(file_path)
                 file_name = os.path.basename(file_path)
                 
-                # Send file info (name and size) first
-                header = f"{file_name}|{file_size}"
+                # Send file info (name, extension and size) first
+                file_extension = os.path.splitext(file_name)[1]
+                header = f"{file_name}|{file_size}|{file_extension}"
                 client_socket.sendall(header.encode() + b"\n")
                 
                 sent_bytes = 0
