@@ -1,4 +1,4 @@
-# Easy File Transfer
+# SwiftShare
 
 A simple and intuitive application for sharing files between computers on your network. With a modern graphical interface and real-time progress tracking, sending files has never been easier!
 
@@ -62,4 +62,4 @@ If you encounter any issues:
 3. Ensure your network allows the connection
 4. Check the server logs for any error messages
 
-Enjoy seamless file sharing with Easy File Transfer!
+Enjoy seamless file sharing with SwiftShare!
