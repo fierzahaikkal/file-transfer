@@ -1,0 +1,8 @@
+2025-05-16 13:10:40,449 - INFO - Connected to server at 127.0.0.1:12345
+2025-05-16 13:11:14,649 - WARNING - Attempt 1 failed, retrying in 2 seconds...
+2025-05-16 13:11:16,654 - ERROR - Error receiving file: File header too large, possibly invalid data
+2025-05-16 13:12:42,186 - INFO - Connected to server at 127.0.0.1:12345
+2025-05-16 13:13:32,172 - INFO - Disconnected from server
+2025-05-16 13:13:38,171 - INFO - Connected to server at 127.0.0.1:12345
+2025-05-16 13:13:49,671 - INFO - File received and saved as '/Users/raflidewanto/Downloads/received_file_20250516_131349'
+2025-05-16 13:14:21,352 - INFO - Disconnected from server

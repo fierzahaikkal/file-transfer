@@ -91,59 +91,76 @@ class FileServer:
                 break
     
     def send_file(self, client_socket, file_path, progress_callback=None):
-        """Send a file to a client"""
-        try:
-            file_size = os.path.getsize(file_path)
-            file_name = os.path.basename(file_path)
+        """Send a file to a client with retry mechanism"""
+        MAX_RETRIES = 3
+        RETRY_DELAY = 2  # seconds
+        
+        for attempt in range(MAX_RETRIES):
+            try:
+                file_size = os.path.getsize(file_path)
+                file_name = os.path.basename(file_path)
+                
+                # Send file info (name and size) first
+                header = f"{file_name}|{file_size}"
+                client_socket.sendall(header.encode() + b"\n")
+                
+                sent_bytes = 0
+                with open(file_path, 'rb') as file:
+                    while sent_bytes < file_size:
+                        remaining = file_size - sent_bytes
+                        chunk_size = min(BUFFER_SIZE, remaining)
+                        data = file.read(chunk_size)
+                        
+                        if not data:
+                            break
+                        
+                        try:
+                            client_socket.sendall(data)
+                            sent_bytes += len(data)
+                            
+                            if progress_callback:
+                                progress = int((sent_bytes / file_size) * 100)
+                                progress_callback(progress)
+                        except socket.error as e:
+                            if attempt < MAX_RETRIES - 1:
+                                logging.warning(f"Transfer interrupted, retrying in {RETRY_DELAY} seconds...")
+                                time.sleep(RETRY_DELAY)
+                                # Seek back to continue from where we left off
+                                file.seek(sent_bytes)
+                                raise e
+                            else:
+                                raise
             
-            # Send file info (name and size) first
-            header = f"{file_name}|{file_size}"
-            client_socket.sendall(header.encode() + b"\n")
-            
-            sent_bytes = 0
-            with open(file_path, 'rb') as file:
-                while True:
-                    data = file.read(BUFFER_SIZE)
-                    if not data:
-                        break
-                    
-                    client_socket.sendall(data)
-                    sent_bytes += len(data)
-                    
-                    if progress_callback:
-                        progress = int((sent_bytes / file_size) * 100)
-                        progress_callback(progress)
-            
-            # Record successful transfer
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            client_info = client_socket.getpeername()
-            client_addr = f"{client_info[0]}:{client_info[1]}"
-            transfer_record = {
-                "timestamp": timestamp,
-                "file": file_name,
-                "size": file_size,
-                "client": client_addr,
-                "status": "Complete"
-            }
-            self.transfer_history.append(transfer_record)
-            logging.info(f"File '{file_name}' sent successfully to {client_addr}")
-            return True
-            
-        except Exception as e:
-            logging.error(f"Error sending file: {str(e)}")
-            # Record failed transfer
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            client_info = client_socket.getpeername()
-            client_addr = f"{client_info[0]}:{client_info[1]}"
-            transfer_record = {
-                "timestamp": timestamp,
-                "file": os.path.basename(file_path),
-                "size": os.path.getsize(file_path) if os.path.exists(file_path) else 0,
-                "client": client_addr,
-                "status": f"Failed: {str(e)}"
-            }
-            self.transfer_history.append(transfer_record)
-            return False
+                # Record successful transfer
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                client_info = client_socket.getpeername()
+                client_addr = f"{client_info[0]}:{client_info[1]}"
+                transfer_record = {
+                    "timestamp": timestamp,
+                    "file": file_name,
+                    "size": file_size,
+                    "client": client_addr,
+                    "status": "Complete"
+                }
+                self.transfer_history.append(transfer_record)
+                logging.info(f"File '{file_name}' sent successfully to {client_addr}")
+                return True
+                
+            except Exception as e:
+                logging.error(f"Error sending file: {str(e)}")
+                # Record failed transfer
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                client_info = client_socket.getpeername()
+                client_addr = f"{client_info[0]}:{client_info[1]}"
+                transfer_record = {
+                    "timestamp": timestamp,
+                    "file": os.path.basename(file_path),
+                    "size": os.path.getsize(file_path) if os.path.exists(file_path) else 0,
+                    "client": client_addr,
+                    "status": f"Failed: {str(e)}"
+                }
+                self.transfer_history.append(transfer_record)
+                return False
 
 
 class ServerGUI:

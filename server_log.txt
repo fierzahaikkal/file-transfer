@@ -1,0 +1,12 @@
+2025-05-16 13:10:22,493 - INFO - Server started on 127.0.0.1:12345
+2025-05-16 13:10:40,450 - INFO - Accepted connection from 127.0.0.1:54786
+2025-05-16 13:11:06,172 - INFO - File 'luminary-dark.png' sent successfully to 127.0.0.1:54786
+2025-05-16 13:12:42,187 - INFO - Accepted connection from 127.0.0.1:54869
+2025-05-16 13:12:42,195 - ERROR - Error accepting connection: [Errno 22] Invalid argument
+2025-05-16 13:12:46,307 - ERROR - Error sending file: [Errno 32] Broken pipe
+2025-05-16 13:12:46,361 - INFO - File 'luminary-dark.png' sent successfully to 127.0.0.1:54869
+2025-05-16 13:13:22,025 - INFO - Server stopped
+2025-05-16 13:13:26,841 - INFO - Server started on 127.0.0.1:12345
+2025-05-16 13:13:38,171 - INFO - Accepted connection from 127.0.0.1:54898
+2025-05-16 13:13:38,238 - INFO - File 'luminary-dark.png' sent successfully to 127.0.0.1:54898
+2025-05-16 13:14:24,235 - INFO - Server stopped

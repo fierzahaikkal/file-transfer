@@ -55,83 +55,121 @@ class FileClient:
             logging.error(f"Error during disconnect: {str(e)}")
     
     def receive_file(self, save_path, progress_callback=None):
-        """Receive a file from the server"""
+        """Receive a file from the server with retry mechanism"""
         if not self.connected:
             raise ConnectionError("Not connected to server")
         
-        try:
-            # First, receive the file header (name and size)
-            header_data = b""
-            while b'\n' not in header_data:
-                chunk = self.socket.recv(BUFFER_SIZE)
-                if not chunk:
-                    raise ConnectionError("Connection closed before receiving file header")
-                header_data += chunk
-                if len(header_data) > 1024:  # Prevent excessive header size
-                    raise ValueError("File header too large, possibly invalid data")
-            
-            header_end = header_data.find(b'\n')
-            header = header_data[:header_end].decode()
-            remaining_data = header_data[header_end + 1:]
-            
-            # Parse the header
+        MAX_RETRIES = 3
+        RETRY_DELAY = 2  # seconds
+        last_exception = None
+        
+        for attempt in range(MAX_RETRIES):
             try:
-                file_name, file_size = header.split('|')
-                file_size = int(file_size)
-            except ValueError:
-                raise ValueError("Invalid file header format")
-            
-            # Create the directory if it doesn't exist
-            os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else ".", exist_ok=True)
-            
-            # Start receiving the file
-            received_bytes = len(remaining_data)
-            last_progress_update = time.time()
-            
-            with open(save_path, 'wb') as file:
-                # Write any data we already received after the header
-                if remaining_data:
-                    file.write(remaining_data)
+                if attempt > 0:
+                    # Reconnect if this is a retry attempt
+                    if not self.connect(self.socket.getsockname()[0], self.socket.getsockname()[1]):
+                        continue
                 
-                # Continue receiving data
-                while received_bytes < file_size:
-                    chunk = self.socket.recv(min(BUFFER_SIZE, file_size - received_bytes))
-                    if not chunk:
-                        break  # Connection closed
+                # First, receive the file header (name and size)
+                header_data = b""
+                while b'\n' not in header_data:
+                    try:
+                        chunk = self.socket.recv(BUFFER_SIZE)
+                        if not chunk:
+                            raise ConnectionError("Connection closed before receiving file header")
+                        header_data += chunk
+                        if len(header_data) > 1024000:  # Prevent excessive header size
+                            raise ValueError("File header too large, possibly invalid data")
+                    except socket.error as e:
+                        if attempt < MAX_RETRIES - 1:
+                            raise e
+                        else:
+                            last_exception = e
+                            break
+                
+                header_end = header_data.find(b'\n')
+                header = header_data[:header_end].decode()
+                remaining_data = header_data[header_end + 1:]
+                
+                # Parse the header
+                try:
+                    file_name, file_size = header.split('|')
+                    file_size = int(file_size)
+                except ValueError:
+                    raise ValueError("Invalid file header format")
+                
+                # Create the directory if it doesn't exist
+                os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else ".", exist_ok=True)
+                
+                # Start receiving the file
+                received_bytes = len(remaining_data)
+                last_progress_update = time.time()
+                
+                # Open file in append mode if this is a retry and file exists
+                file_mode = 'ab' if attempt > 0 and os.path.exists(save_path) else 'wb'
+                
+                with open(save_path, file_mode) as file:
+                    # Write any data we already received after the header
+                    if remaining_data and file_mode == 'wb':
+                        file.write(remaining_data)
                     
-                    file.write(chunk)
-                    received_bytes += len(chunk)
+                    # Continue receiving data
+                    while received_bytes < file_size:
+                        try:
+                            chunk = self.socket.recv(min(BUFFER_SIZE, file_size - received_bytes))
+                            if not chunk:
+                                if attempt < MAX_RETRIES - 1:
+                                    raise ConnectionError("Connection lost during transfer")
+                                break
+                            
+                            file.write(chunk)
+                            received_bytes += len(chunk)
+                            
+                            # Update progress
+                            current_time = time.time()
+                            if progress_callback and (current_time - last_progress_update) > 0.1:
+                                progress = int((received_bytes / file_size) * 100)
+                                progress_callback(progress, received_bytes, file_size)
+                                last_progress_update = current_time
+                        except socket.error as e:
+                            if attempt < MAX_RETRIES - 1:
+                                last_exception = e
+                                logging.warning(f"Transfer interrupted, retrying in {RETRY_DELAY} seconds...")
+                                time.sleep(RETRY_DELAY)
+                                break
+                            else:
+                                raise e
                     
-                    # Update progress
-                    current_time = time.time()
-                    if progress_callback and (current_time - last_progress_update) > 0.1:  # Limit updates to 10 per second
-                        progress = int((received_bytes / file_size) * 100)
-                        progress_callback(progress, received_bytes, file_size)
-                        last_progress_update = current_time
+                    if received_bytes >= file_size:
+                        # Transfer completed successfully
+                        if progress_callback:
+                            progress_callback(100, received_bytes, file_size)
+                        
+                        # Record the download
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        download_record = {
+                            "timestamp": timestamp,
+                            "file_name": os.path.basename(save_path),
+                            "original_name": file_name,
+                            "size": file_size,
+                            "path": save_path,
+                            "status": "Complete"
+                        }
+                        self.download_history.append(download_record)
+                        logging.info(f"File received and saved as '{save_path}'")
+                        return True
             
-            # Final progress update
-            if progress_callback:
-                progress_callback(100, received_bytes, file_size)
-            
-            # Record the download
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            download_record = {
-                "timestamp": timestamp,
-                "file_name": os.path.basename(save_path),
-                "original_name": file_name,
-                "size": file_size,
-                "path": save_path,
-                "status": "Complete" if received_bytes >= file_size else f"Incomplete ({received_bytes}/{file_size} bytes)"
-            }
-            self.download_history.append(download_record)
-            
-            logging.info(f"File received and saved as '{save_path}'")
-            return True
-            
-        except Exception as e:
-            logging.error(f"Error receiving file: {str(e)}")
-            
-            # Record the failed download
+            except Exception as e:
+                last_exception = e
+                if attempt < MAX_RETRIES - 1:
+                    logging.warning(f"Attempt {attempt + 1} failed, retrying in {RETRY_DELAY} seconds...")
+                    time.sleep(RETRY_DELAY)
+                    continue
+                else:
+                    raise e
+        
+        # If we get here, all retries failed
+        if last_exception:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             download_record = {
                 "timestamp": timestamp,
@@ -139,11 +177,13 @@ class FileClient:
                 "original_name": "unknown",
                 "size": 0,
                 "path": save_path if save_path else "unknown",
-                "status": f"Failed: {str(e)}"
+                "status": f"Failed: {str(last_exception)}"
             }
             self.download_history.append(download_record)
-            
-            raise e
+            logging.error(f"Error receiving file: {str(last_exception)}")
+            raise last_exception
+        
+        return False
 
 
 class ClientGUI:
@@ -636,11 +676,11 @@ class ClientGUI:
     def format_size(self, size_bytes):
         """Format file size in human-readable format"""
         for unit in ['B', 'KB', 'MB', 'GB']:
-            if size_bytes < 1024 or unit == 'GB':
+            if size_bytes < 1024000 or unit == 'GB':
                 if unit == 'B':
                     return f"{size_bytes} {unit}"
-                return f"{size_bytes/1024:.2f} {unit}"
-            size_bytes /= 1024
+                return f"{size_bytes/1024000:.2f} {unit}"
+            size_bytes /= 1024000
         return "0 B"  # Default for zero or invalid size
     
     def on_close(self):
